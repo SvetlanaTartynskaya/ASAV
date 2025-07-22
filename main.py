@@ -97,7 +97,7 @@ def start(update: Update, context: CallbackContext) -> int:
         return ConversationHandler.END
 
 def check_tab_number_exists_in_excel(tab_number):
-    """Проверка существования табельного номера в Users.xlsx"""
+    """Проверка Аществования табельного номера в Users.xlsx"""
     try:
         df_users = load_users_table()
         if df_users.empty:
@@ -990,15 +990,15 @@ def finish_manual_input(update: Update, context: CallbackContext):
         df['location'] = location
         df['division'] = division
         df['tab_number'] = tab_number
-        df['timestamp'] = datetime('now').strftime('%Y-%m-%d %H:%M:%S')
+        df['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
         # Создаем папку для отчетов
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-W%U')
         report_folder = f'meter_readings/week_{current_week}'
         os.makedirs(report_folder, exist_ok=True)
         
         # Сохраняем файл
-        timestamp = datetime('now').strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         file_path = os.path.join(report_folder, 
                                f'meters_{location}_{division}_{tab_number}_{timestamp}.xlsx')
         
@@ -1490,12 +1490,12 @@ def confirm_readings(update: Update, context: CallbackContext):
     os.makedirs('meter_readings', exist_ok=True)
     
     # Создаем папку для отчетов текущей недели, если не существует
-    current_week = datetime('now').strftime('%Y-W%U')  # Год-Номер недели
+    current_week = datetime.now().strftime('%Y-W%U')  # Год-Номер недели
     report_folder = f'meter_readings/week_{current_week}'
     os.makedirs(report_folder, exist_ok=True)
     
     # Формируем имя файла
-    timestamp = datetime('now').strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     file_path = f'{report_folder}/meters_{location}_{division}_{tab_number}_{timestamp}.xlsx'
     
     # Добавляем метаданные
@@ -1504,7 +1504,7 @@ def confirm_readings(update: Update, context: CallbackContext):
         'location': location,
         'division': division,
         'tab_number': tab_number,
-        'timestamp': datetime('now').strftime('%Y-%m-%d %H:%M:%S')
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
     
     for key, value in user_info.items():
@@ -1599,7 +1599,7 @@ def handle_ubylo_confirmation(update: Update, context: CallbackContext):
             inv_num, meter_type, user_tab, user_name, location, division, user_chat_id = request_data
             
             # 2. Находим последний файл пользователя
-            current_week = datetime('now').strftime('%Y-W%U')
+            current_week = datetime.now().strftime('%Y-W%U')
             report_folder = f'meter_readings/week_{current_week}'
             import glob
             user_files = glob.glob(f'{report_folder}/*_{location}_{division}_{user_tab}_*.xlsx')
@@ -1640,7 +1640,7 @@ def handle_ubylo_confirmation(update: Update, context: CallbackContext):
                         processed_by = ?,
                         processed_at = ?
                     WHERE request_id = ?
-                ''', (query.from_user.id, datetime('now').strftime('%Y-%m-%d %H:%M:%S'), request_id))
+                ''', (query.from_user.id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), request_id))
                 
                 # 6. Сохраняем в final_report только после подтверждения
                 validator = MeterValidator()
@@ -1713,7 +1713,7 @@ def handle_ubylo_rejection(update: Update, context: CallbackContext):
                     processed_by = ?,
                     processed_at = ?
                 WHERE request_id = ? AND status = 'pending'
-            ''', (query.from_user.id, datetime('now').strftime('%Y-%m-%d %H:%M:%S'), request_id))
+            ''', (query.from_user.id, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), request_id))
             
             # Находим и удаляем все записи пользователя за последние 5 дней
             cursor.execute('''
@@ -1725,7 +1725,7 @@ def handle_ubylo_rejection(update: Update, context: CallbackContext):
             deleted_count = cursor.rowcount
             
             # Удаляем файлы пользователя за последние 5 дней
-            current_week = datetime('now').strftime('%Y-W%U')
+            current_week = datetime.now().strftime('%Y-W%U')
             report_folder = f'meter_readings/week_{current_week}'
             if os.path.exists(report_folder):
                 for filename in os.listdir(report_folder):
@@ -1789,7 +1789,7 @@ def handle_admin_view(update: Update, context: CallbackContext):
     location, division = admin_info
     
     # Получаем текущую неделю
-    current_week = datetime('now').strftime('%Y-W%U')
+    current_week = datetime.now().strftime('%Y-W%U')
     report_folder = f'meter_readings/week_{current_week}'
     
     if not os.path.exists(report_folder):
@@ -1837,7 +1837,7 @@ def handle_view_readings(update: Update, context: CallbackContext):
     location, division = admin_info
     
     # Получаем текущую неделю
-    current_week = datetime('now').strftime('%Y-W%U')
+    current_week = datetime.now().strftime('%Y-W%U')
     report_folder = f'meter_readings/week_{current_week}'
     
     if not os.path.exists(report_folder):
@@ -2038,7 +2038,7 @@ def handle_admin_submit(update: Update, context: CallbackContext):
     name, location, division = user_data
 
     # Ищем последний файл, отправленный пользователем
-    current_week = datetime('now').strftime('%Y-W%U')
+    current_week = datetime.now().strftime('%Y-W%U')
     report_folder = f'meter_readings/week_{current_week}'
     import glob
     user_files = glob.glob(f'{report_folder}/*_{location}_{division}_{user_tab}_*.xlsx')
@@ -2098,12 +2098,12 @@ def handle_admin_excel_file(update: Update, context: CallbackContext):
             return ConversationHandler.END
 
         # Создаем папку для отчетов
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-W%U')
         report_folder = f'meter_readings/week_{current_week}'
         os.makedirs(report_folder, exist_ok=True)
 
         # Сохраняем файл с пометкой, что отправлено администратором
-        timestamp = datetime('now').strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         file_path = os.path.join(
             report_folder,
             f'meters_admin_{user_tab}_{timestamp}.xlsx'
@@ -2413,12 +2413,12 @@ def finish_admin_readings(update: Update, context: CallbackContext):
         division = context.user_data['user_division']
 
         # Create report folder
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-W%U')
         report_folder = f'meter_readings/week_{current_week}'
         os.makedirs(report_folder, exist_ok=True)
 
         # Prepare filename
-        timestamp = datetime('now').strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = f'meters_{location}_{division}_{user_tab}_admin_{timestamp}.xlsx'
         file_path = os.path.join(report_folder, filename)
 
@@ -2447,7 +2447,7 @@ def finish_admin_readings(update: Update, context: CallbackContext):
         df['division'] = division
         df['tab_number'] = user_tab
         df['submitted_by'] = admin_name
-        df['timestamp'] = datetime('now').strftime('%Y-%m-%d %H:%M:%S')
+        df['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # Save file
         df.to_excel(file_path, index=False)
@@ -2565,7 +2565,7 @@ def handle_view_week_report(update: Update, context: CallbackContext):
         output.seek(0)
         
         # Формируем имя файла
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-W%U')
         filename = f'final_report_{location}_{division}_{current_week}.xlsx'
         
         # Отправляем пользователю
@@ -2582,7 +2582,7 @@ def handle_view_week_report(update: Update, context: CallbackContext):
 
 def get_accessible_reports(location: str, division: str, role: str) -> list:
     """Возвращает список доступных отчетов"""
-    current_week = datetime('now').strftime('%Y-W%U')
+    current_week = datetime.now().strftime('%Y-W%U')
     report_folder = f'meter_readings/week_{current_week}'
     
     if not os.path.exists(report_folder):
@@ -2676,12 +2676,12 @@ def handle_manager_excel_file(update: Update, context: CallbackContext):
         user_chat_id = context.user_data['user_chat_id']
 
         # Создаем папку для отчетов
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-W%U')
         report_folder = f'meter_readings/week_{current_week}'
         os.makedirs(report_folder, exist_ok=True)
 
         # Сохраняем файл с пометкой, что отправлено руководителем
-        timestamp = datetime('now').strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         file_path = os.path.join(
             report_folder,
             f'meters_{location}_{division}_{user_tab}_manager_{timestamp}.xlsx'
@@ -2764,16 +2764,16 @@ def finish_manager_readings(update: Update, context: CallbackContext):
         df['location'] = location
         df['division'] = division
         df['tab_number'] = user_tab
-        df['timestamp'] = datetime('now').strftime('%Y-%m-%d %H:%M:%S')
+        df['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         df['submitted_by_manager'] = update.effective_user.id  # ID руководителя
 
         # Создаем папку для отчетов
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-W%U')
         report_folder = f'meter_readings/week_{current_week}'
         os.makedirs(report_folder, exist_ok=True)
 
         # Сохраняем файл
-        timestamp = datetime('now').strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         file_path = os.path.join(
             report_folder,
             f'meters_{location}_{division}_{user_tab}_manager_{timestamp}.xlsx'
@@ -2827,6 +2827,27 @@ def finish_manager_readings(update: Update, context: CallbackContext):
         )
         return ConversationHandler.END
     
+def setup_jobs(updater):
+    """Настройка периодических задач"""
+    job_queue = updater.job_queue
+    
+    # Обновление из 1С каждые 4 часа
+    job_queue.run_repeating(
+        callback=update_from_1c,
+        interval=4*3600,
+        first=0
+    )
+    
+    # Ежедневная синхронизация в 8:00
+    job_queue.run_daily(
+        callback=daily_sync,
+        time=time(hour=8, minute=0)
+    )
+
+def update_from_1c(context: CallbackContext):
+    """Периодическое обновление данных из 1С"""
+    shifts_handler.update_from_1c()
+    
 def schedule_cleanup_jobs(context: CallbackContext):
     """Планирование заданий по очистке старых данных"""
     try:
@@ -2843,22 +2864,17 @@ def schedule_cleanup_jobs(context: CallbackContext):
 def cleanup_old_requests(context: CallbackContext):
     """Очистка запросов старше 5 дней"""
     try:
-        cursor = sqlite3.cursorect('Users_bot.db', check_same_thread=False)
-        
-        
-        cursor.execute('''
-            DELETE FROM pending_requests 
-            WHERE timestamp < datetime('now', '-5 days')
-        ''')
-        
-        deleted_count = cursor.rowcount
-        logger.info(f"Удалено {deleted_count} старых запросов")
-        
+        with db_transaction() as cursor:
+            cursor.execute('''
+                DELETE FROM pending_requests 
+                WHERE timestamp < datetime('now', '-5 days')
+            ''')
+            
+            deleted_count = cursor.rowcount
+            logger.info(f"Удалено {deleted_count} старых запросов")
+            
     except Exception as e:
         logger.error(f"Ошибка очистки старых запросов: {e}")
-    finally:
-        if 'cursor' in locals():
-            cursor.close()
     
     
 def main():

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import sqlite3
 import logging
 import os
+from db_utils import db_transaction
 
 # Настройка логирования
 logging.basicConfig(
@@ -36,7 +37,7 @@ class ShiftsHandler:
                 logger.error("Передано пустое имя администратора")
                 return None
             
-            current_date = datetime('now').strftime('%d.%m.%Y')
+            current_date = datetime.now().strftime('%d.%m.%Y')  # Fixed datetime usage
             self.cursor.execute('''
                 SELECT status 
                 FROM daily_shifts 
@@ -57,7 +58,7 @@ class ShiftsHandler:
         try:
             df = pd.read_excel('tabels.xlsx')
             
-            current_date = datetime('now').strftime('%d.%m.%Y')
+            current_date = datetime.now().strftime('%d.%m.%Y')  # Fixed datetime usage
             
             date_columns = []
             for col in df.columns:
@@ -106,7 +107,7 @@ class ShiftsHandler:
                 employees = [row[0] for row in self.cursor.fetchall()]
                 
                 df = pd.DataFrame({'ФИО': employees})
-                current_date = datetime('now').strftime('%d.%m.%Y')
+                current_date = datetime.now().strftime('%d.%m.%Y')  # Fixed datetime usage
                 df[current_date] = "НЕТ"  # По умолчанию все "НЕТ"
                 
                 df.to_excel('tabels.xlsx', index=False)
@@ -192,3 +193,78 @@ class ShiftsHandler:
             self.conn.close()
         except:
             pass 
+
+def update_from_1c(self):
+    """Обновление данных из 1С"""
+    try:
+        # Путь к папке с файлами 1С
+        data_folder = r'D:\Records'
+        
+        # Загрузка пользователей
+        users_path = os.path.join(data_folder, 'Users.xlsx')
+        if os.path.exists(users_path):
+            users_df = pd.read_excel(users_path)
+            self._update_users_table(users_df)
+        
+        # Загрузка смен
+        shifts_path = os.path.join(data_folder, 'tabels.xlsx')
+        if os.path.exists(shifts_path):
+            shifts_df = pd.read_excel(shifts_path)
+            self._update_shifts_table(shifts_df)
+        
+        # Загрузка оборудования
+        equipment_path = os.path.join(data_folder, 'Equipment.xlsx')
+        if os.path.exists(equipment_path):
+            equipment_df = pd.read_excel(equipment_path)
+            self._update_equipment_table(equipment_df)
+        
+        logger.info("Данные из 1С успешно обновлены")
+    except Exception as e:
+        logger.error(f"Ошибка обновления данных из 1С: {e}")
+
+def _update_users_table(self, df):
+    """Обновление таблицы пользователей"""
+    with db_transaction() as cursor:
+        cursor.execute('DELETE FROM Users_user_bot')
+        cursor.execute('DELETE FROM Users_admin_bot')
+        cursor.execute('DELETE FROM Users_dir_bot')
+        
+        for _, row in df.iterrows():
+            role = 'Пользователь'
+            if 'Администратор' in str(row.get('Роль', '')):
+                role = 'Администратор'
+            elif 'Руководитель' in str(row.get('Роль', '')):
+                role = 'Руководитель'
+            
+            table = {
+                'Администратор': 'Users_admin_bot',
+                'Руководитель': 'Users_dir_bot',
+                'Пользователь': 'Users_user_bot'
+            }.get(role)
+            
+            cursor.execute(f'''
+                INSERT INTO {table} (tab_number, name, role, location, division)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (row['Табельный номер'], row['ФИО'], role, row['Локация'], row['Подразделение']))
+
+def _update_shifts_table(self, df):
+    """Обновление таблицы смен"""
+    with db_transaction() as cursor:
+        cursor.execute('DELETE FROM shifts')
+        
+        for _, row in df.iterrows():
+            cursor.execute('''
+                INSERT INTO shifts (tab_number, name, is_on_shift)
+                VALUES (?, ?, ?)
+            ''', (row['Табельный номер'], row['ФИО'], row['Статус']))
+
+def _update_equipment_table(self, df):
+    """Обновление таблицы оборудования"""
+    with db_transaction() as cursor:
+        cursor.execute('DELETE FROM equipment')
+        
+        for _, row in df.iterrows():
+            cursor.execute('''
+                INSERT INTO equipment (inventory_number, meter_type, location, division)
+                VALUES (?, ?, ?, ?)
+            ''', (row['Инв. №'], row['Счётчик'], row['Локация'], row['Подразделение']))

@@ -150,7 +150,7 @@ def check_missing_reports(context):
         reminders = context.bot_data.get('reminders', {})
         
         # Проверяем папку с полученными отчетами
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         reports_folder = f'meter_readings/week_{current_week}'
         
         # Получаем список файлов с отчетами
@@ -198,7 +198,7 @@ def notify_administrators(context):
         reminders = context.bot_data.get('reminders', {})
         
         # Получаем текущую неделю
-        current_week = datetime('now').strftime('%Y-W%U')
+        current_week = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         reports_folder = f'meter_readings/week_{current_week}'
         
         # Получаем список поданных отчетов

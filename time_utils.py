@@ -108,20 +108,21 @@ RUSSIAN_TIMEZONES = {
 }
 
 def get_timezone_for_location(location: str) -> str:
-    """Определяем часовой пояс по названию локации с улучшенным поиском"""
+    """Определяет часовой пояс для локации с улучшенным поиском"""
     if not location:
         return DEFAULT_TIMEZONE
     
     location = location.strip().lower()
     
-    # Поиск полного совпадения
-    for loc_name, tz in TIMEZONE_MAPPING.items():
+    # 1. Проверка точного совпадения
+    for loc_name, tz in RUSSIAN_TIMEZONES.items():
         if loc_name.lower() == location:
             return tz
     
-    # Поиск по частичному совпадению
-    for loc_name, tz in TIMEZONE_MAPPING.items():
-        if location in loc_name.lower() or loc_name.lower() in location:
+    # 2. Проверка частичного совпадения (первые 5 символов)
+    location_prefix = location[:5]
+    for loc_name, tz in RUSSIAN_TIMEZONES.items():
+        if loc_name.lower().startswith(location_prefix):
             return tz
     
     # Поиск по характерным словам

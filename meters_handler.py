@@ -146,58 +146,72 @@ def get_users_on_shift() -> List[Tuple[int, str, str, str]]:
         return []
 
 def schedule_weekly_reminders(context: CallbackContext):
-    """Планирование еженедельных напоминаний"""
+    """Планирование еженедельных напоминаний в московском времени"""
     try:
-        logger.info("Запуск планирования еженедельных напоминаний")
-        
-        # Москва - базовый часовой пояс для планирования
         moscow_tz = pytz.timezone('Europe/Moscow')
         
-        job_kwargs = {
-            'misfire_grace_time': 3600,  # Допустимая задержка 1 час
-            'coalesce': True,  # Объединять пропущенные запуски
-            'max_instances': 1  # Максимум 1 экземпляр задания
-        }
-        
-        # Планируем задание на среду в 08:00 МСК
+        # 1. Напоминание в среду в 08:00 МСК
         context.job_queue.run_daily(
-            callback=prepare_weekly_reminders,
+            callback=send_initial_reminders,
             time=time(hour=8, minute=0, tzinfo=moscow_tz),
-            days=(2,),  # 2 - среда
-            name="weekly_meters_reminder",
-            job_kwargs=job_kwargs
+            days=(2,),  # Среда
+            name="weekly_initial_reminder"
         )
         
-        # Планируем задание на пятницу в 14:00 МСК для проверки отправленных данных
+        # 2. Проверка в пятницу в 14:00 МСК
         context.job_queue.run_daily(
             callback=check_missing_reports,
             time=time(hour=14, minute=0, tzinfo=moscow_tz),
-            days=(4,),  # 4 - пятница
-            name="check_reports_14_00",
-            job_kwargs=job_kwargs
+            days=(4,),  # Пятница
+            name="weekly_missing_check"
         )
         
-        # Планируем задание на пятницу в 15:00 МСК для уведомления администраторов
+        # 3. Уведомление админов в пятницу в 15:00 МСК
         context.job_queue.run_daily(
             callback=notify_admins_about_missing_reports,
             time=time(hour=15, minute=0, tzinfo=moscow_tz),
-            days=(4,),  # 4 - пятница
-            name="notify_admins_15_00",
-            job_kwargs=job_kwargs
+            days=(4,),  # Пятница
+            name="weekly_admin_notification"
         )
         
-        # Планируем задание на понедельник в 08:00 МСК для уведомления руководителей
-        context.job_queue.run_daily(
-            callback=notify_managers_about_missing_reports,
-            time=time(hour=8, minute=0, tzinfo=moscow_tz),
-            days=(0,),  # 0 - понедельник
-            name="notify_managers_monday_08_00",
-            job_kwargs=job_kwargs
-        )
-        
-        logger.info("Все еженедельные напоминания и проверки запланированы")
     except Exception as e:
-        logger.error(f"Ошибка планирования еженедельных напоминаний: {e}")
+        logger.error(f"Ошибка планирования напоминаний: {e}")
+
+def send_initial_reminders(context: CallbackContext):
+    """Отправка первичных напоминаний с учетом локального времени"""
+    users_on_shift = get_users_on_shift()
+    
+    for user in users_on_shift:
+        tab_number, name, location, division = user
+        user_tz = get_user_timezone(location)
+        
+        try:
+            # Локальное время пользователя
+            local_now = datetime.now(user_tz)
+            local_time_str = local_now.strftime('%H:%M (%Z)')
+            
+            # Московское время дедлайна (пятница 14:00)
+            moscow_tz = pytz.timezone('Europe/Moscow')
+            deadline = moscow_tz.localize(
+                datetime.combine(local_now.date() + timedelta(days=(4 - local_now.weekday()) % 7), 
+                               time(hour=14))
+            )
+            user_deadline = deadline.astimezone(user_tz)
+            deadline_str = user_deadline.strftime('%H:%M (%Z) в пятницу')
+            
+            message = (
+                f"⏰ Напоминание для {name}\n\n"
+                f"📍 Локация: {location}\n"
+                f"🏢 Подразделение: {division}\n\n"
+                f"Текущее время: {local_time_str}\n"
+                f"Срок подачи показаний: до {deadline_str}\n\n"
+                "Пожалуйста, отправьте показания вовремя!"
+            )
+            
+            context.bot.send_message(chat_id=tab_number, text=message)
+            
+        except Exception as e:
+            logger.error(f"Ошибка отправки напоминания {tab_number}: {e}")
 
 def prepare_weekly_reminders(context: CallbackContext):
     """Подготовка еженедельных напоминаний в среду"""
@@ -564,18 +578,27 @@ def check_if_on_time(location: str = None) -> bool:
         return False
 
 def notify_admins_about_ubylo(context, request_data):
-    """Уведомление администраторов о запросе 'Убыло'"""
+    """Уведомление администраторов и суперпользователей о запросе 'Убыло'"""
     try:
         from check import MeterValidator
         validator = MeterValidator()
-        admins = validator.get_admin_for_division(request_data['division'])
         
-        if not admins:
-            # Если нет администраторов для подразделения, берем всех
-            cursor.execute('SELECT tab_number, name FROM Users_admin_bot')
-            admins = cursor.fetchall()
+        # Получаем администраторов для подразделения
+        admins = validator._get_admins_for_division(request_data['division'])
         
-        for admin_id, admin_name in admins:
+        # Получаем всех суперпользователей
+        with db_transaction() as cursor:
+            cursor.execute('SELECT tab_number, name, chat_id FROM Users_super_bot')
+            superusers = cursor.fetchall()
+        
+        # Объединяем списки
+        recipients = admins + superusers
+        
+        if not recipients:
+            logger.error(f"Не найдены администраторы или суперпользователи")
+            return
+            
+        for recipient_tab, recipient_name, recipient_chat_id in recipients:
             keyboard = [
                 [InlineKeyboardButton("✅ Подтвердить", callback_data=f"confirm_ubylo_{request_data['request_id']}")],
                 [InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_ubylo_{request_data['request_id']}")]
@@ -584,7 +607,7 @@ def notify_admins_about_ubylo(context, request_data):
             
             try:
                 context.bot.send_message(
-                    chat_id=admin_id,
+                    chat_id=recipient_chat_id,
                     text=f"⚠️ Запрос на отметку 'Убыло'\n\n"
                          f"Инв. №: {request_data['inv_num']}\n"
                          f"Счётчик: {request_data['meter_type']}\n"
@@ -594,9 +617,9 @@ def notify_admins_about_ubylo(context, request_data):
                          f"Пожалуйста, подтвердите или отклоните запрос:",
                     reply_markup=reply_markup
                 )
-                logger.info(f"Уведомление отправлено администратору {admin_name}")
+                logger.info(f"Уведомление отправлено {recipient_name}")
             except Exception as e:
-                logger.error(f"Ошибка отправки уведомления администратору {admin_name}: {e}")
+                logger.error(f"Ошибка отправки уведомления {recipient_name}: {e}")
     except Exception as e:
         logger.error(f"Ошибка уведомления администраторов: {e}")
 
@@ -872,7 +895,7 @@ def handle_admin_view_week(update: Update, context: CallbackContext):
         return
         
     role = context.user_data.get('role')
-    if role not in ['Администратор', 'Руководитель']:
+    if role not in ['Администратор', 'Руководитель', 'Суперпользователь']:
         update.message.reply_text("Эта команда доступна только администраторам и руководителям.")
         return
         
